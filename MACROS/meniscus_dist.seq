@@ -1,0 +1,22 @@
+! Nick Konidaris
+! Code-V Macros
+! Function @meniscus_dist
+!   Measures the distance of the ROC of two surfaces and returns it in lens units
+! Args:
+!   ^s1: First surface of the spherical lens
+FCT @meniscus_dist(num ^s1)
+    num ^s2 ^r1 ^r2 ^t ^dist
+
+    ^s2 == ^s1 + 1
+
+    ^r1 == (rdy s^s1)
+    ^r2 == (rdy s^s2)
+    ^t == (thi s^s1)
+
+    ^dist == ^r1 - ^r2 + ^t
+
+END FCT 1 / ^dist
+
+
+
+
