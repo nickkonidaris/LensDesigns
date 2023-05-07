@@ -1,0 +1,119 @@
+! Nick Konidaris
+! MIRMOS project
+! Created on 6 May 2023
+
+! Through Slit Imager:
+! See MMOS-DOC-33 for requirements. Highest level:
+! Wavelength range 0.7 - 0.886
+! 4k x 4k x 15 micron
+! 292.7-mm focal length with 2.481 aperture
+! FFOV is 16.885 deg, no margin
+
+! CD "C:\Users\npk\Dropbox\LENS DESGINS\CODEV\macros\Designs\LensDesigns\MACROS"
+! in "C:\Users\npk\Dropbox\LENS DESGINS\CODEV\macros\Designs\LensDesigns\MIRMOS\TSI\2023-05-06-TSI.seq"
+
+! How to do glass expert:
+! run "C:\CODEV115\macro\GlassExpert.seq" "C:\Users\npk\Dropbox\LENS DESGINS\CODEV\macros\2022-12-17a-IMACS.seq" "" "" 7 "Yes" ;GO
+
+num ^global_syn
+gbl num ^pol_input(5) ^tra_outputMin(10,22) ^tra_outputMax(10,22) ^NRD ^overfill_fac 
+num ^z ^min_Fld ^max_FLD ^jtra
+num ^ssia_wt ^ssia_exp 
+num ^md_wt 
+
+! Load SSIA function
+in "C:\codev115\macro\ssia.seq"
+! Load meniscus_dist function
+if IsFct("@meniscus_dist") = 0
+    in meniscus_dist.seq
+end if
+
+! Some parameters. 
+^NRD == 20
+^overfill_fac == 1
+^fld_typ == (typ fld)
+^jtra == (num w)+1
+^pol_input(1) == 0 ! Needed by the TRA_1FLD function. 
+^min_fld == 1e20
+^max_fld == -1e20
+^z == 1
+
+
+!^global_syn == #1
+^global_syn == 1
+
+WRI ^overfill_fac
+
+AUT
+    DRA yes  ! Draw the system
+    CEN yes ! CENTROID
+
+    ! Error function is WFT for wavefront
+    ! EFT WFR
+    ! EFT MTF
+
+    ! Number of rays in grid
+    NRR 6
+
+    if  ^global_syn = 1
+        GS 1
+    end if
+
+    !MXA S2..I-2 56 ; WTC 0.01 ! Max angle 
+    MXT 65 ! Max central thickness
+    MNT 8 ! Minimum central thickness
+    MNE 12 ! Minimum element edge thickness
+    MNA 1 ! Min center air thickness
+    MAE 1 ! Min air edge thickness
+
+
+    EFP ALL N ! Plot the result
+    
+    ! Weigh the outer fields more
+    WTX F2 T1 1.5 ; WTY F2 T1 1.5
+    WTX F3 T1 1.9 ; WTY F3 T1 1.9
+
+    MXC 50000 ! max number of cycles
+    IMP 3e-9 ! improvement factor to keep going (smaller=more cycles)
+
+    IMC Z1 > 3.0 ! Image clearance > 3 mm
+
+    for ^s 2 (num s)-1 2
+        SD S^s Z1 < 160 ! Lens semi-aperture must be less than this
+        ! Tolerance sensitivity
+        SN2 S^s Z1 = 0; WTC .001 
+    end for
+
+    ^md_wt == 1e-2
+    @md1 == @meniscus_dist(2)
+    @md1 = 0 ; WTC ^md_wt
+    @md2 == @meniscus_dist(4)
+    @md2 = 0 ; WTC ^md_wt
+    @md3 == @meniscus_dist(6)
+    @md3 = 0 ; WTC ^md_wt
+    @md4 == @meniscus_dist(8)
+    @md4 = 0 ; WTC ^md_wt
+    @md5 == @meniscus_dist(10)
+    @md5 = 0 ; WTC ^md_wt
+
+
+
+    !!!!! Handle transmission
+    ! Approach Minimize optical path length:
+    !OP R1 S2..I W1 F1 Z1 = 0; WTC 5e-6
+
+    ! TRA_1FLD(zoom_pos, x_fld, y_fld, NRD, geo_or_stokes, grid_scale_fact, ^pol_input, ^output_array)
+    !@trans == @TRA_1FLD(1, 0, 0, 20, 0, ^overfill_fac, ^pol_input, ^tra_outputMin)
+    !dsp ^tra_outputMin(1,1)
+
+    !@trans = 0 PTC 1e-12 2 2
+
+
+    EFL Z1 = 292.7 ! Focal length 
+    STP no ! Step optimization. Yes early on, no later.
+    EXT no ! Extended optimization
+    CNV no ! Convergence speed increase. No to stabilize MF
+    EFP all yes! Plot
+
+    BFG yes ! Trial and error y/n for alternative derivative calc
+go

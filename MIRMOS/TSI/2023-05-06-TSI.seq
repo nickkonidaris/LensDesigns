@@ -1,129 +1,79 @@
-! Nick Konidaris
-! IMACS project
-
-! CD "C:\Users\npk\Dropbox\LENS DESGINS\CODEV\macros\Designs\LensDesigns\MACROS"
 ! in "C:\Users\npk\Dropbox\LENS DESGINS\CODEV\macros\Designs\LensDesigns\MIRMOS\TSI\2023-05-06-TSI.seq"
-
-! How to do glass expert:
-! run "C:\CODEV115\macro\GlassExpert.seq" "C:\Users\npk\Dropbox\LENS DESGINS\CODEV\macros\2022-12-17a-IMACS.seq" "" "" 7 "Yes" ;GO
-
-num ^global_syn
-gbl num ^pol_input(5) ^tra_outputMin(10,22) ^tra_outputMax(10,22) ^NRD ^overfill_fac 
-num ^z ^min_Fld ^max_FLD ^jtra
-num ^ssia_wt ^ssia_exp 
-num ^md_wt 
-
-! Load SSIA function
-in "C:\codev115\macro\ssia.seq"
-! Load meniscus_dist function
-if IsFct("@meniscus_dist") = 0
-    in meniscus_dist.seq
-end if
-
-! Some parameters. 
-^NRD == 20
-^overfill_fac == 1
-^fld_typ == (typ fld)
-^jtra == (num w)+1
-^pol_input(1) == 0 ! Needed by the TRA_1FLD function. 
-^min_fld == 1e20
-^max_fld == -1e20
-^z == 1
+! CD "C:\Users\npk\Dropbox\LENS DESGINS\CODEV\macros\Designs\LensDesigns"
 
 
-!^global_syn == #1
-^global_syn == 0
+! MIRMOS Through-slit imager lens
+! 
+! s1 is stop
+! s2 L1
+! s4 L2, s6 L3, S8 L4, S10 L5, S11 Focus
+! First monochromatic error function
 
-WRI ^overfill_fac
+num ^fl ^npix ^detr ^ang ^pupil_relief
+in cv_macro:cvnewlens.seq
 
-AUT
-    DRA yes  ! Draw the system
-    CEN yes ! CENTROID
+TIT "MIRMOS Through Slit Imager"
 
-    ! Error function is WFT for wavefront
-    ! EFT WFR
-    ! EFT MTF
+wri (tit)
 
-    ! Number of rays in grid
-    NRR 6
+^fl == 292.7 ! From MMOS-DOC-33
+^pupil_relief == 200 ! 200-mm -> Gerrad suggested ~180 mm
 
-    if  ^global_syn = 1
-        GS 1
+^ang == 17/2 ! From MMOS-DOC-33, plus some margin
+WRI "Focal length " ^fl " full field " ^ang
+
+YAN  0 0.707*^ang ^ang
+epd 120 ! 118 mm pupil, with some margin
+
+s11 ! Make 11 surfaces
+^no == 1
+for ^s 2 (num s)-1 2
+
+    if (^s = 6) or (^s = 14)
+        gla s^s cafl
+    else
+        gla s^s cafl
     end if
+    thi s^s 10
 
-    !MXA S2..I-2 56 ; WTC 0.01 ! Max angle 
-    MXT 85 ! Max central thickness
-    MNT 8 ! Minimum central thickness
-    MNE 12 ! Minimum element edge thickness
-    MNA 1 ! Min center air thickness
-    MAE 1 ! Min air edge thickness
-
-
-    EFP ALL N ! Plot the result
-    
-    ! Weigh the outer fields more
-    WTX F2 T1 1.5 ; WTY F2 T1 1.5
-    WTX F3 T1 1.9 ; WTY F3 T1 1.9
-
-    MXC 50000 ! max number of cycles
-    IMP 3e-5 ! improvement factor to keep going (smaller=more cycles)
-
-    IMC Z1 > 2.5 ! Image clearance > 3 mm
-
-    for ^s 2 (num s)-1 2
-        SD S^s Z1 < 160 ! Lens semi-aperture must be less than this
-        ! Tolerance sensitivity
-        SN2 S^s Z1 = 0; WTC .001 
-        ! Surface slope sensitivity
-        QSL S^s Z1 = 0; WTC 1e-7
-        ! Set normalization radius for asphere
-        NRF S^s Z1 = 1
-
-    end for
-
-    ^md_wt == 1e-2
-    @md1 == @meniscus_dist(2)
-    @md1 = 0 ; WTC ^md_wt
-    @md2 == @meniscus_dist(4)
-    @md2 = 0 ; WTC ^md_wt
-    @md3 == @meniscus_dist(6)
-    @md3 = 0 ; WTC ^md_wt
-    @md4 == @meniscus_dist(8)
-    @md4 = 0 ; WTC ^md_wt
-    @md5 == @meniscus_dist(10)
-    @md5 = 0 ; WTC ^md_wt
-    @md6 == @meniscus_dist(12)
-    @md6 = 0 ; WTC ^md_wt*10
-    @md7 == @meniscus_dist(14)
-    @md7 = 0 ; WTC ^md_wt
-
-    ! @SSIA(surface, zoom, Hmax) For Hmax = 0 max aper used
-    @ssi1 == @SSIA(2, 1, 0)
-    @ssi1 = 0 ; WTC 9e-4
-
-    @ssi3 == @SSIA(8, 1, 0)
-    @ssi3 = 0 ; WTC 3e-4
-
-    @ssi2 == @SSIA(14, 1, 0)
-    @ssi2 = 0 ; WTC 3e-4
+    ! Set variables
+    thc s^s 0 
+    thc s^s-1 0
+    ccy s^s 0
+    ccy s^s+1 0
+    slb s^s concat("Ca ", num_to_str(^no))
+    ^no == ^no+1
+    thi s^s-1 10
+end for
 
 
-    !!!!! Handle transmission
-    ! Approach Minimize optical path length:
-    !OP R1 S2..I W1 F1 Z1 = 0; WTC 5e-6
+thi s1 ^pupil_relief
+thi s10 3 ! FF lens thickenss
+thi s11 5 ! BFD
 
-    ! TRA_1FLD(zoom_pos, x_fld, y_fld, NRD, geo_or_stokes, grid_scale_fact, ^pol_input, ^output_array)
-    !@trans == @TRA_1FLD(1, 0, 0, 20, 0, ^overfill_fac, ^pol_input, ^tra_outputMin)
-    !dsp ^tra_outputMin(1,1)
+! Set the variability of these surfaces to not variable
+thc s1 100
+!thc s14 100
+slb s12 "CCD"
 
-    !@trans = 0 PTC 1e-12 2 2
+vie; go
+
+! Aperture on front element
+! CIR S2 121.4
+! run "C:\CODEV115\macro\setvig.seq" 1e-07 0.1 100 NO YES ;GO
 
 
-    EFL Z1 = 355.6 ! Focal length 
-    STP no ! Step optimization. Yes early on, no later.
-    EXT yes  ! Extended optimization
-    CNV no ! Convergence speed increase. No to stabilize MF
-    EFP all yes! Plot
+!WL 1050 800 600 400 320
+WL 900 800 700 600
 
-    BFG yes ! Trial and error y/n for alternative derivative calc
-go
+! Now  Set aspheres
+!SPS QBF s2 ! <-- QBFS is superior for optimization
+!SCC S2 c1 1 ! <- vary norm radius
+!SCC S2 c3 0 ! <- 4th order
+!SCC S2 c4 0 ! <- 6th order
+
+in "MIRMOS\TSI\2023-05-06-tsi-mf.seq"
+
+SPO
+    !SSI Z1 0.009
+GO
